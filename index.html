@@ -207,12 +207,11 @@
             color: #8ac4ff;
         }
 
-        /* ПАНЕЛЬ ВВОДА (ИСПРАВИЛИ НАПОЛЗАНИЕ КНОПОК АНДРОИДА) */
+        /* ПАНЕЛЬ ВВОДА (С ИСПРАВЛЕННЫМ ОТСТУПОМ ПОД АНДРОИД) */
         .chat-input-bar {
             background-color: #17212b;
             border-top: 1px solid #101921;
             width: 100%;
-            /* Добавили безопасный отступ снизу для кнопок навигации телефона */
             padding: 10px 15px calc(15px + env(safe-area-inset-bottom));
             display: flex;
             align-items: center;
@@ -260,7 +259,6 @@
 
         .sticker-panel {
             position: absolute;
-            /* Приподняли панель стикеров тоже, чтобы не накладывалась */
             bottom: 75px;
             left: 10px;
             width: 90vw;
@@ -335,9 +333,9 @@
         
         <div id="reg-fields" style="display: none; flex-direction: column; gap: 15px;">
             <input type="text" id="reg-nickname" placeholder="Ваш никнейм">
-            <input type="text" id="reg-city" placeholder="Город (например: Москва)">
+            <input type="text" id="reg-city" placeholder="Город (например: Волгоград)">
             <input type="number" id="reg-school" placeholder="Номер школы">
-            <input type="text" id="reg-class" placeholder="Класс (например: 5-А)">
+            <input type="text" id="reg-class" placeholder="Класс (например: 6-Г)">
         </div>
 
         <button id="auth-main-btn" class="auth-btn" onclick="handleAuthSubmit()">Войти</button>
@@ -485,7 +483,7 @@
                 currentUser = null;
                 if (unsubscribeMessages) unsubscribeMessages();
                 document.getElementById('auth-screen').style.display = 'flex';
-                document.getElementById('chat-screen').style.none = 'none';
+                document.getElementById('chat-screen').style.display = 'none';
             }
         });
 
