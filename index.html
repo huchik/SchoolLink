@@ -356,34 +356,50 @@
 
         // Слушатель базы данных
         function loadMessages() {
-            if (unsubscribeMessages) unsubscribeMessages();
-
-            const q = query(
-                collection(db, "messages"),
-                where("school", "==", userSchool),
-                where("class", "==", userClass),
-                orderBy("timestamp", "asc")
-            );
-
-            unsubscribeMessages = onSnapshot(q, (snapshot) => {
-                const chatBox = document.getElementById('chat-box');
-                chatBox.innerHTML = "";
-
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const msgDiv = document.createElement('div');
-                    msgDiv.classList.add('message');
-
-                    if (data.userId === currentUser.uid) {
-                        msgDiv.classList.add('my-message');
-                    }
-
-                    msgDiv.innerHTML = `<span class="sender">${data.senderName}</span>${data.text}`;
-                    chatBox.appendChild(msgDiv);
-                });
-                chatBox.scrollTop = chatBox.scrollHeight;
-            });
-        }
+          if (unsubscribeMessages) unsubscribeMessages();
+    
+          // Берем сообщения только для школы и класса текущего юзера
+          const q = query(
+              collection(db, "messages"),
+              where("school", "==", userSchool),
+              where("class", "==", userClass)
+          );
+    
+          unsubscribeMessages = onSnapshot(q, (snapshot) => {
+              const chatBox = document.getElementById('chat-box');
+              chatBox.innerHTML = "";
+    
+              // Собираем сообщения в массив, чтобы отсортировать их по времени
+              let messagesArray = [];
+              snapshot.forEach((doc) => {
+                  messagesArray.push(doc.data());
+              });
+    
+              // Сортируем: старые вверху, новые внизу
+              messagesArray.sort((a, b) => {
+                  const timeA = a.timestamp ? a.timestamp.toMillis() : 0;
+                  const timeB = b.timestamp ? b.timestamp.toMillis() : 0;
+                  return timeA - timeB;
+              });
+    
+              // Выводим на экран
+              messagesArray.forEach((data) => {
+                  const msgDiv = document.createElement('div');
+                  msgDiv.classList.add('message');
+    
+                  if (data.userId === currentUser.uid) {
+                      msgDiv.classList.add('my-message');
+                  }
+    
+                  msgDiv.innerHTML = `<span class="sender">${data.senderName}</span>${data.text}`;
+                  chatBox.appendChild(msgDiv);
+              });
+              
+              chatBox.scrollTop = chatBox.scrollHeight;
+          }, (error) => {
+              console.error("Ошибка получения сообщений: ", error);
+          });
+      }
     </script>
 </body>
 </html>
