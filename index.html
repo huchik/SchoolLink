@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Web — SchoolLink</title>
+    <title>SchoolLink</title>
     <style>
         * {
             box-sizing: border-box;
@@ -96,7 +96,7 @@
             text-decoration: underline;
         }
 
-        /* ИНТЕРФЕЙС ЧАТА НА ПОЛНЫЙ ЭКРАН (БЕЗ СУЖЕНИЯ) */
+        /* ИНТЕРФЕЙС ЧАТА НА ПОЛНЫЙ ЭКРАН */
         .tg-container {
             width: 100vw;
             height: 100vh;
@@ -107,7 +107,7 @@
             background-blend-mode: overlay;
         }
 
-        /* Шапка чата во всю ширину */
+        /* Шапка чата */
         .chat-header {
             height: 60px;
             background-color: #17212b;
@@ -121,7 +121,7 @@
         }
 
         .chat-header-details h3 {
-            font-size: 18px; /* Чуть крупнее заголовок */
+            font-size: 18px;
             font-weight: 600;
             color: #fff;
         }
@@ -142,7 +142,7 @@
         }
         .tg-logout:hover { text-decoration: underline; }
 
-        /* Окно сообщений на всю доступную ширину */
+        /* Окно сообщений */
         .chat-messages {
             flex: 1;
             padding: 20px 24px;
@@ -151,21 +151,43 @@
             flex-direction: column;
             gap: 8px;
             width: 100%;
+            
+            /* Полное удаление стандартного белого скроллбара для Firefox */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
         }
 
-        /* Крупные, читаемые сообщения во весь экран */
+        /* КРУТОЙ ТЁМНЫЙ СКРОЛЛБАР ДЛЯ ХРОМА И КЛИЕНТОВ (Вместо белого из image_382bfe.png) */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px; /* Очень тонкий */
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent; /* Полностью прозрачный фон полосы */
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15); /* Едва заметный серый ползунок */
+            border-radius: 10px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3); /* Подсвечивается при наведении */
+        }
+
+        /* Сообщения */
         .message {
-            max-width: 65%; /* Чтобы на широком мониторе длинные сообщения красиво смотрелись */
+            max-width: 65%;
             padding: 10px 16px;
             border-radius: 12px;
-            font-size: 16px; /* Увеличили размер шрифта сообщений */
+            font-size: 16px;
             line-height: 1.5;
             color: #f5f5f5;
             word-wrap: break-word;
-            background-color: #182533; /* Входящие */
+            background-color: #182533;
             align-self: flex-start;
             box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-            border-bottom-left-radius: 4px; /* ТГ хвостик */
+            border-bottom-left-radius: 4px;
         }
 
         .message .sender {
@@ -176,19 +198,19 @@
             margin-bottom: 4px;
         }
 
-        /* Моё сообщение (Правое синее) */
+        /* Моё сообщение */
         .message.my-message {
             background-color: #2b5278;
             align-self: flex-end;
             border-bottom-left-radius: 12px;
-            border-bottom-right-radius: 4px; /* ТГ хвостик справа */
+            border-bottom-right-radius: 4px;
         }
 
         .message.my-message .sender {
             color: #8ac4ff;
         }
 
-        /* Панель ввода во всю ширину экрана внизу */
+        /* Панель ввода */
         .chat-input-bar {
             background-color: #17212b;
             border-top: 1px solid #101921;
@@ -204,7 +226,7 @@
             background: none;
             border: none;
             padding: 10px 0;
-            font-size: 16px; /* Увеличили шрифт ввода */
+            font-size: 16px;
             color: #fff;
             outline: none;
         }
@@ -232,6 +254,7 @@
 </head>
 <body>
 
+    <!-- ЭКРАН ВХОДА / РЕГИСТРАЦИИ -->
     <div id="auth-screen" class="auth-container">
         <h2 id="auth-title">SchoolLink</h2>
         <p id="auth-subtitle">Войдите, чтобы начать общение</p>
@@ -249,12 +272,14 @@
         <div id="auth-toggle" class="toggle-auth" onclick="toggleAuthMode()">Создать аккаунт</div>
     </div>
 
+    <!-- ПОЛНОЭКРАННЫЙ ЧАТ -->
     <div id="chat-screen" class="tg-container">
         
+        <!-- Шапка чата -->
         <div class="chat-header">
             <div class="chat-header-details">
                 <h3 id="chat-room-title">Чат класса</h3>
-                <p id="chat-room-info">Школа: -- | Класс: --</p>
+                <p id="chat-room-info">Школа: -- | Class: --</p>
             </div>
             <div>
                 <span id="user-display-name" style="font-size: 15px; color: #7f91a4; margin-right: 15px; font-weight: 500;"></span>
@@ -262,9 +287,12 @@
             </div>
         </div>
         
+        <!-- Окно сообщений -->
         <div class="chat-messages" id="chat-box">
-            </div>
+            <!-- Сюда прилетают сообщения -->
+        </div>
         
+        <!-- Нижняя панель ввода -->
         <div class="chat-input-bar">
             <input type="text" id="message-input" placeholder="Напишите сообщение..." onkeydown="if(event.key === 'Enter') sendMessage()">
             <button class="send-btn" onclick="sendMessage()">Отправить</button>
@@ -272,6 +300,7 @@
 
     </div>
 
+    <!-- FIREBASE СКАФФОЛД -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -378,7 +407,6 @@
                 currentUser = null;
                 if (unsubscribeMessages) unsubscribeMessages();
                 document.getElementById('auth-screen').style.display = 'flex';
-                document.getElementById('chat-screen').style.none = 'none';
                 document.getElementById('chat-screen').style.display = 'none';
             }
         });
