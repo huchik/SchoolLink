@@ -192,7 +192,7 @@
         <div id="reg-fields" style="display: none; flex-direction: column; gap: 15px;">
             <input type="text" id="reg-nickname" placeholder="Твой никнейм в чате">
             <input type="number" id="reg-school" placeholder="Номер школы (только цифры)">
-            <input type="text" id="reg-class" placeholder="Класс (например: 5-А или 7-Б)">
+            <input type="text" id="reg-class" placeholder="Класс (например: 5-А или 6-Г)">
         </div>
 
         <button id="auth-main-btn" onclick="handleAuthSubmit()">Войти</button>
@@ -220,9 +220,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimestamp, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // Твои рабочие ключи конфигурации Firebase
+        // Твоя проверенная рабочая конфигурация Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyApr1QKnLQ3puv3Z2HzvXzT-J8ZeE6-s94",
             authDomain: "schoollink-f6d30.firebaseapp.com",
@@ -264,7 +264,7 @@
             }
         }
 
-        // Клик по главной кнопке входа/регистрации
+        // Клик по кнопке входа/регистрации
         window.handleAuthSubmit = function() {
             const email = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value;
@@ -302,12 +302,12 @@
             }
         }
 
-        // Мониторинг авторизации
+        // Отслеживание состояния входа пользователя
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
                 
-                // Достаем школу и класс юзера
+                // Достаем школу и класс из базы данных
                 const userDoc = await getDoc(doc(db, "users", user.uid));
                 if (userDoc.exists()) {
                     userSchool = userDoc.data().school;
@@ -333,7 +333,7 @@
             signOut(auth);
         }
 
-        // Отправка сообщений
+        // Отправка новых сообщений
         window.sendMessage = async function() {
             const input = document.getElementById('message-input');
             const text = input.value.trim();
@@ -354,52 +354,52 @@
             }
         }
 
-        // Слушатель базы данных
+        // Загрузка сообщений и отображение (БЕЗ ТРЕБОВАНИЯ ИНДЕКСОВ)
         function loadMessages() {
-          if (unsubscribeMessages) unsubscribeMessages();
-    
-          // Берем сообщения только для школы и класса текущего юзера
-          const q = query(
-              collection(db, "messages"),
-              where("school", "==", userSchool),
-              where("class", "==", userClass)
-          );
-    
-          unsubscribeMessages = onSnapshot(q, (snapshot) => {
-              const chatBox = document.getElementById('chat-box');
-              chatBox.innerHTML = "";
-    
-              // Собираем сообщения в массив, чтобы отсортировать их по времени
-              let messagesArray = [];
-              snapshot.forEach((doc) => {
-                  messagesArray.push(doc.data());
-              });
-    
-              // Сортируем: старые вверху, новые внизу
-              messagesArray.sort((a, b) => {
-                  const timeA = a.timestamp ? a.timestamp.toMillis() : 0;
-                  const timeB = b.timestamp ? b.timestamp.toMillis() : 0;
-                  return timeA - timeB;
-              });
-    
-              // Выводим на экран
-              messagesArray.forEach((data) => {
-                  const msgDiv = document.createElement('div');
-                  msgDiv.classList.add('message');
-    
-                  if (data.userId === currentUser.uid) {
-                      msgDiv.classList.add('my-message');
-                  }
-    
-                  msgDiv.innerHTML = `<span class="sender">${data.senderName}</span>${data.text}`;
-                  chatBox.appendChild(msgDiv);
-              });
-              
-              chatBox.scrollTop = chatBox.scrollHeight;
-          }, (error) => {
-              console.error("Ошибка получения сообщений: ", error);
-          });
-      }
+            if (unsubscribeMessages) unsubscribeMessages();
+
+            // Берём базовую коллекцию сообщений
+            const q = query(collection(db, "messages"));
+
+            unsubscribeMessages = onSnapshot(q, (snapshot) => {
+                const chatBox = document.getElementById('chat-box');
+                chatBox.innerHTML = "";
+
+                let messagesArray = [];
+                
+                // Фильтруем сообщения на клиенте по школе и классу
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.school === userSchool && data.class === userClass) {
+                        messagesArray.push(data);
+                    }
+                });
+
+                // Сортируем локально по времени получения (старые вверху, свежие внизу)
+                messagesArray.sort((a, b) => {
+                    const timeA = a.timestamp ? a.timestamp.toMillis() : 0;
+                    const timeB = b.timestamp ? b.timestamp.toMillis() : 0;
+                    return timeA - timeB;
+                });
+
+                // Рисуем сообщения на экране
+                messagesArray.forEach((data) => {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.classList.add('message');
+
+                    if (data.userId === currentUser.uid) {
+                        msgDiv.classList.add('my-message');
+                    }
+
+                    msgDiv.innerHTML = `<span class="sender">${data.senderName}</span>${data.text}`;
+                    chatBox.appendChild(msgDiv);
+                });
+                
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, (error) => {
+                console.error("Ошибка чата: ", error);
+            });
+        }
     </script>
 </body>
 </html>
