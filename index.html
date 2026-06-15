@@ -497,10 +497,14 @@
                 document.getElementById('auth-screen').style.display = 'none';
                 document.getElementById('chat-screen').style.display = 'flex';
                 
-                // Настраиваем шапку и запускаем чтение сообщений
                 document.getElementById('chat-room-title').innerText = `Чат ${userClass}`;
                 document.getElementById('chat-room-info').innerText = `г. ${userCity} | Школа №${userSchool}`;
                 
+                // Очищаем адресную строку браузера от старых хэшей групп (#group=...)
+                if(window.location.hash) {
+                    history.replaceState("", document.title, window.location.pathname + window.location.search);
+                }
+
                 loadMessages();
                 autoLoadAllStickers();
             } else {
@@ -561,20 +565,17 @@
                     const dbClass = String(data.class).toLowerCase().trim();
                     const myClass = String(userClass).toLowerCase().trim();
 
-                    // Фильтруем: только сообщения из той же школы и того же класса
                     if (dbSchool === mySchool && dbClass === myClass) {
                         messagesArray.push(data);
                     }
                 });
 
-                // Сортировка по времени
                 messagesArray.sort((a, b) => {
                     const timeA = a.timestamp ? a.timestamp.toMillis() : 0;
                     const timeB = b.timestamp ? b.timestamp.toMillis() : 0;
                     return timeA - timeB;
                 });
 
-                // Отрисовка
                 messagesArray.forEach((data) => {
                     if(!data.text) return;
                     
@@ -610,7 +611,7 @@
             });
         }
 
-        // Стикер-панель
+        // Панель стикеров
         const stickerBtn = document.getElementById('sticker-btn');
         const stickerPanel = document.getElementById('sticker-panel');
         const stickerList = document.getElementById('sticker-list');
