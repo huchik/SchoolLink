@@ -373,6 +373,7 @@
 </head>
 <body>
 
+    <!-- ЭКРАН ВХОДА / РЕГИСТРАЦИИ -->
     <div id="auth-screen" class="auth-container">
         <h2 id="auth-title">SchoolLink</h2>
         <p id="auth-subtitle">Войдите, чтобы начать общение</p>
@@ -392,12 +393,15 @@
         <div id="auth-toggle" class="toggle-auth" onclick="toggleAuthMode()">Создать аккаунт</div>
     </div>
 
+    <!-- ГЛАВНЫЙ СУПЕР-КОНТЕЙНЕР ПРИЛОЖЕНИЯ -->
     <div id="chat-screen" class="tg-container">
         
+        <!-- ЛЕВАЯ ПАНЕЛЬ (СПИСОК ГРУПП) -->
         <div class="sidebar" id="group-sidebar">
             <div class="chat-icon add-chat-btn" onclick="createNewGroupPrompt()" title="Создать группу">+</div>
         </div>
 
+        <!-- ОСНОВНОЕ ОКНО ТЕКУЩЕГО ЧАТА -->
         <div class="chat-main">
             <div class="chat-header">
                 <div class="chat-header-left">
@@ -601,8 +605,9 @@
             }
         }
 
+        /* СОЗДАНИЕ ГРУППЫ — ТЕПЕРЬ БЕЗ ПРИВЯЗКИ К КЛАССУ */
         window.createNewGroupPrompt = async function() {
-            const groupName = prompt("Введите название новой группы:");
+            const groupName = prompt("Введите название новой межклассовой группы:");
             if (!groupName || groupName.trim() === "") return;
 
             const groupAvatar = prompt("Вставьте ссылку на аватарку группы (необязательно):");
@@ -611,8 +616,7 @@
                 await addDoc(collection(db, "groups"), {
                     name: groupName.trim(),
                     avatarUrl: groupAvatar.trim() || "",
-                    school: String(userSchool),
-                    class: String(userClass),
+                    school: String(userSchool), // Привязываем только к школе!
                     createdBy: currentUser.uid,
                     timestamp: serverTimestamp()
                 });
@@ -621,6 +625,7 @@
             }
         }
 
+        /* ЗАГРУЗКА ГРУПП — ВИДЯТ ВСЕ УЧЕНИКИ ШКОЛЫ */
         function loadGroupsListener() {
             if (unsubscribeGroups) unsubscribeGroups();
 
@@ -632,6 +637,7 @@
                 sidebar.innerHTML = "";
                 sidebar.appendChild(plusBtn);
 
+                // Чат твоего личного класса (КЛ) — доступен только твоему классу
                 const mainClassIcon = document.createElement('div');
                 mainClassIcon.className = `chat-icon ${String(currentGroupId) === 'main_class' ? 'active' : ''}`;
                 mainClassIcon.innerText = "КЛ";
@@ -639,11 +645,13 @@
                 mainClassIcon.onclick = () => switchGroup("main_class", `Чат ${userClass}`);
                 sidebar.appendChild(mainClassIcon);
 
+                // Кастомные группы — видны ВСЕМ классам этой школы!
                 snapshot.forEach((docSnap) => {
                     const data = docSnap.data();
                     const gId = docSnap.id;
 
-                    if (String(data.school) === String(userSchool) && String(data.class) === String(userClass)) {
+                    // Проверяем ТОЛЬКО совпадение школы
+                    if (String(data.school) === String(userSchool)) {
                         const groupIcon = document.createElement('div');
                         groupIcon.className = `chat-icon ${String(currentGroupId) === String(gId) ? 'active' : ''}`;
                         
@@ -668,7 +676,12 @@
             window.location.hash = `group=${groupId}`;
 
             document.getElementById('chat-room-title').innerText = groupName;
-            document.getElementById('chat-room-info').innerText = `г. ${userCity} | Школа №${userSchool} | Класс: ${userClass}`;
+            
+            if (groupId === "main_class") {
+                document.getElementById('chat-room-info').innerText = `г. ${userCity} | Школа №${userSchool} | Класс: ${userClass}`;
+            } else {
+                document.getElementById('chat-room-info').innerText = `г. ${userCity} | Школа №${userSchool} | Общая группа`;
+            }
 
             const icons = document.querySelectorAll('.chat-icon');
             icons.forEach(icon => icon.classList.remove('active'));
@@ -708,7 +721,7 @@
                     groupId: String(currentGroupId), 
                     city: String(userCity),
                     school: String(userSchool), 
-                    class: String(userClass),
+                    class: String(userClass), // Твой личный класс (чтобы другие видели, из какого ты класса)
                     timestamp: serverTimestamp()
                 });
             } catch (e) {
@@ -716,6 +729,7 @@
             }
         }
 
+        /* ЗАГРУЗКА СООБЩЕНИЙ — УБРАНА ФИЛЬТРАЦИЯ КЛАССА ДЛЯ ОБЩИХ ГРУПП */
         function loadMessages() {
             if (unsubscribeMessages) unsubscribeMessages();
 
@@ -731,10 +745,20 @@
                     const data = doc.data();
                     const msgGroupId = data.groupId || "main_class"; 
                     
-                    if (String(data.school) === String(userSchool) && 
-                        String(data.class) === String(userClass) && 
-                        String(msgGroupId) === String(currentGroupId)) {
-                        messagesArray.push(data);
+                    // Если это ГЛАВНЫЙ чат класса — жестко фильтруем по школе И классу
+                    if (String(currentGroupId) === "main_class") {
+                        if (String(data.school) === String(userSchool) && 
+                            String(data.class).toLowerCase() === String(userClass).toLowerCase() && 
+                            String(msgGroupId) === "main_class") {
+                            messagesArray.push(data);
+                        }
+                    } 
+                    // Если это ОБЩАЯ созданная группа — фильтруем ТОЛЬКО по школе и ID группы!
+                    else {
+                        if (String(data.school) === String(userSchool) && 
+                            String(msgGroupId) === String(currentGroupId)) {
+                            messagesArray.push(data);
+                        }
                     }
                 });
 
@@ -764,7 +788,9 @@
                         messageBody = `<img src="${stickerUrl}" class="chat-sticker-img" onerror="this.style.display='none'">`;
                     }
 
-                    msgDiv.innerHTML = `<span class="sender">${data.senderName}</span>${messageBody}`;
+                    // Внутри сообщения красиво выводим никнейм и класс отправителя, чтобы старшие видели младших!
+                    const displayClass = data.class ? ` (${data.class.toUpperCase()})` : '';
+                    msgDiv.innerHTML = `<span class="sender">${data.senderName}${displayClass}</span>${messageBody}`;
                     
                     const msgAvatarUrl = data.avatarUrl || DEFAULT_AVATAR;
                     const avatarImg = `<img src="${msgAvatarUrl}" class="user-avatar" onerror="this.src='${DEFAULT_AVATAR}'">`;
