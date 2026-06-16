@@ -343,9 +343,38 @@
             flex-direction: column;
             gap: 12px;
             box-shadow: 0 4px 30px rgba(0,0,0,0.7);
+            max-height: 95vh;
+            overflow-y: auto;
         }
         .settings-container h2 { font-size: 22px; text-align: center; margin-bottom: 5px; }
         .settings-label { font-size: 13px; color: #7f91a4; margin-bottom: -6px; padding-left: 4px; }
+        
+        /* Контейнер для загрузки аватарки в настройках */
+        .avatar-upload-box {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .avatar-upload-box input {
+            flex: 1;
+        }
+        .upload-avatar-btn {
+            background-color: #24313f;
+            border: 1px solid #5288c1;
+            color: #fff;
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 45px;
+        }
+        .upload-avatar-btn:hover {
+            background-color: #2c3b4a;
+        }
+
         .settings-buttons { display: flex; gap: 10px; margin-top: 10px; }
         .cancel-btn { background-color: #202b36; border: 1px solid #24313f; color: #fff; }
         .cancel-btn:hover { background-color: #2c3b4a; }
@@ -420,8 +449,12 @@
             <div class="settings-label">Ваш никнейм:</div>
             <input type="text" id="set-nickname" placeholder="Никнейм">
             
-            <div class="settings-label">Ссылка на аватарку:</div>
-            <input type="text" id="set-avatar" placeholder="Ссылка на фото">
+            <div class="settings-label">Ссылка на аватарку или загрузка:</div>
+            <div class="avatar-upload-box">
+                <input type="text" id="set-avatar" placeholder="Ссылка на фото или загрузи файлы ->">
+                <button type="button" class="upload-avatar-btn" onclick="document.getElementById('avatar-file-input').click()">📎</button>
+                <input type="file" id="avatar-file-input" accept="image/*" style="display: none;" onchange="uploadAvatarImage(this)">
+            </div>
             
             <div class="settings-label">Город:</div>
             <input type="text" id="set-city" placeholder="Город">
@@ -468,6 +501,7 @@
         let unsubscribeMessages = null;
 
         const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+        const imgbbApiKey = "9a59f793012429e57f5cbe3083923d65"; // Твой проверенный ключ Imgbb
 
         window.toggleAuthMode = function() {
             isSignUpMode = !isSignUpMode;
@@ -713,11 +747,10 @@
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 const gifList = document.getElementById('gif-list');
-                const apiKey = "LIVDSRZULELA"; 
-                let url = `https://g.tenor.com/v1/trending?key=${apiKey}&limit=14&media_filter=minimal`;
+                let url = `https://g.tenor.com/v1/trending?key=LIVDSRZULELA&limit=14&media_filter=minimal`;
                 
                 if(queryText.trim() !== "") {
-                    url = `https://g.tenor.com/v1/search?q=${encodeURIComponent(queryText)}&key=${apiKey}&limit=14&media_filter=minimal`;
+                    url = `https://g.tenor.com/v1/search?q=${encodeURIComponent(queryText)}&key=LIVDSRZULELA&limit=14&media_filter=minimal`;
                 }
 
                 fetch(url)
@@ -744,6 +777,7 @@
             }, 400);
         }
 
+        // Загрузка картинок в сам чат
         window.uploadImage = function(inputElement) {
             const file = inputElement.files[0];
             if (!file) return;
@@ -755,8 +789,6 @@
 
             const formData = new FormData();
             formData.append("image", file);
-
-            const imgbbApiKey = "9a59f793012429e57f5cbe3083923d65";
 
             fetch(`https://api.imgbb.com/1/upload?key=${imgbbApiKey}`, {
                 method: "POST",
@@ -783,10 +815,52 @@
             });
         }
 
+        // ЗАГРУЗКА АВАТАРКИ ЧЕРЕЗ НАСТРОЙКИ
+        window.uploadAvatarImage = function(inputElement) {
+            const file = inputElement.files[0];
+            if (!file) return;
+
+            const avatarInputText = document.getElementById('set-avatar');
+            const saveBtn = document.getElementById('save-settings-btn');
+            
+            avatarInputText.value = "⏳ Загрузка аватарки...";
+            avatarInputText.disabled = true;
+            saveBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("image", file);
+
+            fetch(`https://api.imgbb.com/1/upload?key=${imgbbApiKey}`, {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.json())
+            .then((response) => {
+                avatarInputText.disabled = false;
+                saveBtn.disabled = false;
+                inputElement.value = ""; // Очищаем файл
+
+                if (response.success) {
+                    const directUrl = response.data.url;
+                    avatarInputText.value = directUrl; // Автоматом подставляем ссылку в поле ввода
+                    alert("📸 Аватарка успешно загружена! Не забудь нажать кнопку 'Сохранить'.");
+                } else {
+                    avatarInputText.value = "";
+                    alert("Не удалось загрузить фото профиля. Попробуй другое!");
+                }
+            })
+            .catch(err => {
+                console.error("Ошибка Imgbb при загрузке авы:", err);
+                avatarInputText.disabled = false;
+                saveBtn.disabled = false;
+                avatarInputText.value = "";
+                alert("Ошибка сети при загрузке аватарки.");
+            });
+        }
+
         // ЛОГИКА ОКНА НАСТРОЕК
         window.openSettingsModal = function() {
             if(!currentUser) return;
-            // Заполняем поля текущими значениями из оперативной памяти перед открытием окна
             document.getElementById('set-nickname').value = currentUser.displayName || "";
             document.getElementById('set-avatar').value = userAvatarUrl === DEFAULT_AVATAR ? "" : userAvatarUrl;
             document.getElementById('set-city').value = userCity === "Не указан" ? "" : userCity;
@@ -821,25 +895,21 @@
             try {
                 const finalAvatar = newAvatar || DEFAULT_AVATAR;
 
-                // 1. Обновляем базовый профиль Firebase Auth
                 await updateProfile(currentUser, {
                     displayName: newNickname,
                     photoURL: finalAvatar
                 });
 
-                // 2. Обновляем документ пользователя в Firestore
                 await setDoc(doc(db, "users", currentUser.uid), {
                     nickname: newNickname,
                     avatarUrl: finalAvatar,
                     city: String(newCity).trim(),
                     school: String(newSchool).trim(),
                     class: String(newClass).trim()
-                }, { merge: true }); // Ипользуем merge, чтобы случайно ничего не стереть
+                }, { merge: true });
 
                 alert("Настройки успешно сохранены!");
                 closeSettingsModal();
-                
-                // Перезагружаем профиль, чтобы шапка чата и новые сообщения сразу обновились
                 await fetchAndApplyUserData();
 
             } catch (error) {
