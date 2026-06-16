@@ -57,7 +57,7 @@
             margin-top: -5px;
         }
 
-        input {
+        input, select {
             width: 100%;
             padding: 12px 16px;
             border-radius: 10px;
@@ -154,6 +154,21 @@
             font-size: 12px;
             color: #7f91a4;
             margin-top: 2px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .tg-header-btn {
+            background: none;
+            border: none;
+            color: #5288c1;
+            font-size: 20px;
+            cursor: pointer;
+            user-select: none;
         }
 
         .tg-logout {
@@ -305,6 +320,35 @@
 
         /* ИЗОБРАЖЕНИЯ ПОЛЬЗОВАТЕЛЕЙ */
         .chat-user-img { max-width: 280px; max-height: 350px; width: 100%; height: auto; display: block; border-radius: 10px; margin-top: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+
+        /* ОКНО НАСТРОЕК (МОДАЛЬНОЕ ОКНО) */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .modal-overlay.active { display: flex; }
+        .settings-container {
+            background-color: #17212b;
+            width: 90%;
+            max-width: 400px;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #24313f;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.7);
+        }
+        .settings-container h2 { font-size: 22px; text-align: center; margin-bottom: 5px; }
+        .settings-label { font-size: 13px; color: #7f91a4; margin-bottom: -6px; padding-left: 4px; }
+        .settings-buttons { display: flex; gap: 10px; margin-top: 10px; }
+        .cancel-btn { background-color: #202b36; border: 1px solid #24313f; color: #fff; }
+        .cancel-btn:hover { background-color: #2c3b4a; }
     </style>
 </head>
 <body>
@@ -338,6 +382,7 @@
                     </div>
                 </div>
                 <div class="header-actions">
+                    <button class="tg-header-btn" onclick="openSettingsModal()">⚙️</button>
                     <button class="tg-logout" onclick="logout()">Выйти</button>
                 </div>
             </div>
@@ -368,10 +413,36 @@
         </div>
     </div>
 
+    <div id="settings-modal" class="modal-overlay">
+        <div class="settings-container">
+            <h2>Настройки профиля</h2>
+            
+            <div class="settings-label">Ваш никнейм:</div>
+            <input type="text" id="set-nickname" placeholder="Никнейм">
+            
+            <div class="settings-label">Ссылка на аватарку:</div>
+            <input type="text" id="set-avatar" placeholder="Ссылка на фото">
+            
+            <div class="settings-label">Город:</div>
+            <input type="text" id="set-city" placeholder="Город">
+            
+            <div class="settings-label">Номер школы:</div>
+            <input type="number" id="set-school" placeholder="Номер школы">
+            
+            <div class="settings-label">Класс:</div>
+            <input type="text" id="set-class" placeholder="Класс">
+            
+            <div class="settings-buttons">
+                <button class="auth-btn cancel-btn" onclick="closeSettingsModal()">Отмена</button>
+                <button class="auth-btn" id="save-settings-btn" onclick="saveUserSettings()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // ТВОЙ FIREBASE CONFIG
         const firebaseConfig = {
@@ -470,26 +541,7 @@
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
-                
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                if (userDoc.exists()) {
-                    userCity = userDoc.data().city || "Не указан";
-                    userSchool = userDoc.data().school;
-                    userClass = userDoc.data().class;
-                    userAvatarUrl = userDoc.data().avatarUrl || DEFAULT_AVATAR;
-                } else {
-                    userAvatarUrl = user.photoURL || DEFAULT_AVATAR;
-                }
-
-                document.getElementById('auth-screen').style.display = 'none';
-                document.getElementById('chat-screen').style.display = 'flex';
-                
-                document.getElementById('chat-room-title').innerText = `Чат ${userClass}`;
-                document.getElementById('chat-room-info').innerText = `г. ${userCity} | Школа №${userSchool}`;
-
-                loadMessages();
-                autoLoadAllStickers();
-                searchGifs(""); 
+                await fetchAndApplyUserData();
             } else {
                 currentUser = null;
                 if (unsubscribeMessages) unsubscribeMessages();
@@ -497,6 +549,29 @@
                 document.getElementById('chat-screen').style.display = 'none';
             }
         });
+
+        async function fetchAndApplyUserData() {
+            if(!currentUser) return;
+            const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+            if (userDoc.exists()) {
+                userCity = userDoc.data().city || "Не указан";
+                userSchool = userDoc.data().school || "--";
+                userClass = userDoc.data().class || "--";
+                userAvatarUrl = userDoc.data().avatarUrl || DEFAULT_AVATAR;
+            } else {
+                userAvatarUrl = currentUser.photoURL || DEFAULT_AVATAR;
+            }
+
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('chat-screen').style.display = 'flex';
+            
+            document.getElementById('chat-room-title').innerText = `Чат ${userClass}`;
+            document.getElementById('chat-room-info').innerText = `г. ${userCity} | Школа №${userSchool}`;
+
+            loadMessages();
+            autoLoadAllStickers();
+            searchGifs(""); 
+        }
 
         window.logout = function() {
             signOut(auth);
@@ -562,17 +637,14 @@
 
                     let messageBody = data.text;
                     
-                    // Проверка на стикер
                     if (messageBody.startsWith('[sticker:') && messageBody.endsWith(']')) {
                         const stickerUrl = messageBody.replace('[sticker:', '').replace(']', '');
                         messageBody = `<img src="${stickerUrl}" class="chat-sticker-img" onerror="this.style.display='none'">`;
                     }
-                    // Проверка на гифку из Tenor
                     else if (messageBody.startsWith('[gif:') && messageBody.endsWith(']')) {
                         const gifUrl = messageBody.replace('[gif:', '').replace(']', '');
                         messageBody = `<img src="${gifUrl}" class="chat-gif-img" onerror="this.style.display='none'">`;
                     }
-                    // Проверка на загруженную пользователем картинку
                     else if (messageBody.startsWith('[image:') && messageBody.endsWith(']')) {
                         const imgUrl = messageBody.replace('[image:', '').replace(']', '');
                         messageBody = `<img src="${imgUrl}" class="chat-user-img" onclick="window.open('${imgUrl}', '_blank')">`;
@@ -610,7 +682,6 @@
             if (!gifPanel.contains(e.target) && e.target !== gifBtn) gifPanel.classList.add('hidden');
         });
 
-        // Загрузка стикеров
         function autoLoadAllStickers() {
             const stickerList = document.getElementById('sticker-list');
             if (!stickerList) return;
@@ -637,7 +708,6 @@
             checkNextSticker();
         }
 
-        // ИНТЕГРАЦИЯ TENOR GIF
         let searchTimeout;
         window.searchGifs = function(queryText) {
             clearTimeout(searchTimeout);
@@ -674,7 +744,6 @@
             }, 400);
         }
 
-        // TВОЙ API-КЛЮЧ ЗДЕСЬ УЖЕ ВСТАВЛЕН
         window.uploadImage = function(inputElement) {
             const file = inputElement.files[0];
             if (!file) return;
@@ -712,6 +781,74 @@
                 inputField.disabled = false;
                 alert("Ошибка сети при загрузке фото.");
             });
+        }
+
+        // ЛОГИКА ОКНА НАСТРОЕК
+        window.openSettingsModal = function() {
+            if(!currentUser) return;
+            // Заполняем поля текущими значениями из оперативной памяти перед открытием окна
+            document.getElementById('set-nickname').value = currentUser.displayName || "";
+            document.getElementById('set-avatar').value = userAvatarUrl === DEFAULT_AVATAR ? "" : userAvatarUrl;
+            document.getElementById('set-city').value = userCity === "Не указан" ? "" : userCity;
+            document.getElementById('set-school').value = userSchool === "--" ? "" : userSchool;
+            document.getElementById('set-class').value = userClass === "--" ? "" : userClass;
+
+            document.getElementById('settings-modal').classList.add('active');
+        }
+
+        window.closeSettingsModal = function() {
+            document.getElementById('settings-modal').classList.remove('active');
+        }
+
+        window.saveUserSettings = async function() {
+            if(!currentUser) return;
+
+            const newNickname = document.getElementById('set-nickname').value.trim();
+            const newAvatar = document.getElementById('set-avatar').value.trim();
+            const newCity = document.getElementById('set-city').value.trim();
+            const newSchool = document.getElementById('set-school').value.trim();
+            const newClass = document.getElementById('set-class').value.trim();
+
+            if(!newNickname || !newCity || !newSchool || !newClass) {
+                alert("Поля Никнейм, Город, Школа и Класс не могут быть пустыми!");
+                return;
+            }
+
+            const saveBtn = document.getElementById('save-settings-btn');
+            saveBtn.innerText = "Сохранение...";
+            saveBtn.disabled = true;
+
+            try {
+                const finalAvatar = newAvatar || DEFAULT_AVATAR;
+
+                // 1. Обновляем базовый профиль Firebase Auth
+                await updateProfile(currentUser, {
+                    displayName: newNickname,
+                    photoURL: finalAvatar
+                });
+
+                // 2. Обновляем документ пользователя в Firestore
+                await setDoc(doc(db, "users", currentUser.uid), {
+                    nickname: newNickname,
+                    avatarUrl: finalAvatar,
+                    city: String(newCity).trim(),
+                    school: String(newSchool).trim(),
+                    class: String(newClass).trim()
+                }, { merge: true }); // Ипользуем merge, чтобы случайно ничего не стереть
+
+                alert("Настройки успешно сохранены!");
+                closeSettingsModal();
+                
+                // Перезагружаем профиль, чтобы шапка чата и новые сообщения сразу обновились
+                await fetchAndApplyUserData();
+
+            } catch (error) {
+                console.error("Ошибка сохранения настроек:", error);
+                alert("Не удалось сохранить настройки: " + error.message);
+            } finally {
+                saveBtn.innerText = "Сохранить";
+                saveBtn.disabled = false;
+            }
         }
     </script>
 </body>
