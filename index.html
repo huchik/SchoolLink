@@ -498,13 +498,41 @@
         let userAvatarUrl = "";
         let isSignUpMode = false; 
         let unsubscribeMessages = null;
-        let isFirstLoad = true; // Чтобы звук не играл при самом первом открытии чата на старых сообщениях
+        let isFirstLoad = true; 
+        let isAudioAllowed = false; // Флаг: разрешил ли нам браузер воспроизводить аудио
 
         const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
         const imgbbApiKey = "9a59f793012429e57f5cbe3083923d65";
 
-        // Создаем аудио объект для уведомлений
+        // Создаем аудио объект
         const notificationSound = new Audio("https://signals.api.soundoftext.com/static/sounds/notification.mp3");
+
+        // УМНАЯ АКТИВАЦИЯ ЗВУКА ПРИ КЛИКЕ ПО СТРАНИЦЕ
+        function initAudioOnInteraction() {
+            if (isAudioAllowed) return; // Если уже активировали, ничего не делаем
+
+            // Воспроизводим пустой звук на долю секунды, чтобы браузер разблокировал аудио-контекст
+            notificationSound.play()
+                .then(() => {
+                    isAudioAllowed = true;
+                    console.log("🔊 Звуковая подсистема успешно активирована кликом пользователя!");
+                    
+                    // Снимаем слушатели, так как звук разблокирован раз и навсегда за эту сессию
+                    document.removeEventListener('click', initAudioOnInteraction);
+                    document.removeEventListener('keydown', initAudioOnInteraction);
+                    document.removeEventListener('touchstart', initAudioOnInteraction);
+                })
+                .catch(e => {
+                    // Если клик еще не зачитался браузером, он попробует при следующем действии
+                    console.log("Ожидание полноценного клика для звука...");
+                });
+        }
+
+        // Вешаем слушатели на любые действия пользователя для разблокировки звука
+        document.addEventListener('click', initAudioOnInteraction);
+        document.addEventListener('keydown', initAudioOnInteraction);
+        document.addEventListener('touchstart', initAudioOnInteraction);
+
 
         window.toggleAuthMode = function() {
             isSignUpMode = !isSignUpMode;
@@ -584,7 +612,7 @@
                 if (unsubscribeMessages) unsubscribeMessages();
                 document.getElementById('auth-screen').style.display = 'flex';
                 document.getElementById('chat-screen').style.display = 'none';
-                isFirstLoad = true; // Сбрасываем при выходе
+                isFirstLoad = true; 
             }
         });
 
@@ -661,21 +689,18 @@
 
                 messagesArray.sort((a, b) => (a.timestamp ? a.timestamp.toMillis() : 0) - (b.timestamp ? b.timestamp.toMillis() : 0));
 
-                // Проверяем последнее сообщение на предмет проигрывания звука
                 if (messagesArray.length > 0) {
                     const lastMsg = messagesArray[messagesArray.length - 1];
-                    // Если это НЕ наше сообщение и загрузка НЕ первая
                     if (lastMsg.userId !== currentUser.uid && !isFirstLoad) {
                         hasNewIncomingMessage = true;
                     }
                 }
 
-                // Логика звука в фоне
-                if (hasNewIncomingMessage && document.hidden) {
-                    notificationSound.play().catch(e => console.log("Браузер заблокировал звук до клика:", e));
+                // ВОСПРОИЗВЕДЕНИЕ ЗВУКА: Играет только если страница свернута И звуковая плата разблокирована
+                if (hasNewIncomingMessage && document.hidden && isAudioAllowed) {
+                    notificationSound.play().catch(e => console.log("Ошибка воспроизведения звука:", e));
                 }
 
-                // После первой обработки snapshot снимаем флаг первой загрузки
                 isFirstLoad = false;
 
                 messagesArray.forEach((data) => {
@@ -932,7 +957,7 @@
                 await fetchAndApplyUserData();
 
             } catch (error) {
-                console.error("Ошибка保存 настроек:", error);
+                console.error("Ошибка сохранения настроек:", error);
                 alert("Не удалось сохранить настройки: " + error.message);
             } finally {
                 saveBtn.innerText = "Сохранить";
